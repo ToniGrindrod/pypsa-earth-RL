@@ -1,0 +1,56 @@
+# Write down config entries differing from config.default.yaml
+run: {}
+
+countries: ["ZA"]
+
+scenario:
+  clusters: [5]
+  opts: [3h]
+  planning_horizons: [2030]
+  ll: ["c1.0"]  # Change from "copt" to use a fixed limit
+
+electricity:
+  extendable_carriers:
+    Generator: []        # Change from [solar, onwind, offwind-ac, offwind-dc, OCGT]
+    StorageUnit: []      # Keep empty
+    Store: []            # Change from [battery, H2]
+    Link: []             # Keep empty
+
+  estimate_renewable_capacities:
+    stats: "irena"       # This will use actual installed capacities
+    year: 2023
+    p_nom_min: 1.0       # Use 100% of current capacity
+    p_nom_max: 1.0       # Don't allow expansion beyond current
+
+renewable:
+  onwind:
+    extendable: false    # Change from true
+  offwind-ac:
+    extendable: false    # Change from true
+  offwind-dc:
+    extendable: false    # Change from true
+  solar:
+    extendable: false    # Change from true
+  hydro:
+    extendable: false    # Change from true
+  csp:
+    extendable: false    # Change from true
+
+# Add these sector disables for pure electricity-only:
+sector:
+  chp: false                           # Disable CHP (this fixes your error)
+  electricity_distribution_grid: false # Disable low voltage buses
+  solar_rooftop: false                 # Disable rooftop PV
+  home_battery: false                  # Disable home batteries
+  co2_network: false                   # Disable CO2 transport
+  
+# Disable sector-specific data retrieval:
+enable:
+  retrieve_databundle_sector: false    # Don't download sector data
+
+solving:
+  solver:
+    name: highs
+    options: highs-default
+
+# Note that in the config file, The order of top-level sections doesn't matter, but indentation and structure absolutely do!
