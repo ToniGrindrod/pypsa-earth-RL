@@ -7,6 +7,7 @@ scenario:
   clusters: [5]
   opts: [3h]
   planning_horizons: [2030]
+  ll: ["c1.0"]  # Change from "copt" to use a fixed limit
 
 electricity:
   extendable_carriers:
