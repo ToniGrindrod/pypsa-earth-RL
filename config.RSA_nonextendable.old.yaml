@@ -1,6 +1,7 @@
 # Write down config entries differing from config.default.yaml
 #I used this config file for the creation of elec_s_5_ec_lcopt_3h.nc on 4 August
-#The new file disables sector-specific data to provide lower to allow for transmission-level dispatch information
+#The new file disables sector-specific data to allow for transmission-level dispatch information
+#Used this file to create new networks on 8 August
 run: {}
 
 countries: ["ZA"]
