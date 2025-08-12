@@ -3,10 +3,23 @@ run: {}
 
 countries: ["ZA"]
 
+carriers:
+  AC: {}
+  coal: {}
+  CCGT: {}
+  nuclear: {}
+  solar: {}
+  onwind: {}
+  offwind-ac: {}
+  offwind-dc: {}
+  hydro: {}
+  ror: {}
+  biomass: {}
+
 scenario:
   #remove clusters to run the full network
   #clusters: [5]
-  opts: [3h]
+  opts: [1h]
   planning_horizons: [2030]
   ll: ["c1.0"]  # Change from "copt" to use a fixed limit
 
