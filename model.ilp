@@ -1,0 +1,17 @@
+\ Model obj_copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+\ Signature: 0xec82e2d58374482e
+Minimize
+ 
+Subject To
+ c2270: x30 <= 0
+ c2271: x31 <= 0
+ c2272: x32 <= 3.79788066057
+ c2273: x33 <= 0
+ c6888: x30 + x31 + x32 + x33 = 878.658729688
+Bounds
+ x30 free
+ x31 free
+ x32 free
+ x33 free
+End
