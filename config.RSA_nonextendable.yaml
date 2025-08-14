@@ -17,8 +17,7 @@ carriers:
   biomass: {}
 
 scenario:
-  #remove clusters to run the full network
-  #clusters: [5]
+  clusters: [10] #there are 808 nodes in the network but using all failed from too much memory
   opts: [1h]
   planning_horizons: [2030]
   ll: ["c1.0"]  # Change from "copt" to use a fixed limit
@@ -66,5 +65,13 @@ solving:
   solver:
     name: gurobi
     options: gurobi-default
+
+augmented_line_connection:
+  add_to_snakefile: true
+  connectivity_upgrade: 1
+  new_line_type: ["HVAC"]  # Just specify AC vs DC
+  min_expansion: 442.4
+  min_DC_length: 600
+  # Don't specify line_type - let PyPSA choose
 
 # Note that in the config file, The order of top-level sections doesn't matter, but indentation and structure absolutely do!
