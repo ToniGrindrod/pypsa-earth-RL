@@ -66,6 +66,7 @@ solving:
     name: gurobi
     options: gurobi-default
 
+#This is to make sure we don't end up with isolated buses which makes the optimization infeasible
 augmented_line_connection:
   add_to_snakefile: true
   connectivity_upgrade: 1
