@@ -655,3 +655,49 @@ This will show you all the different transmission line types used in your networ
 
 ---
 
+_**User**_
+
+what does this mean: INFO:pypsa.optimization.optimize:The shadow-prices of the constraints Generator-fix-p-lower, Generator-fix-p-upper, Line-fix-s-lower, Line-fix-s-upper, Line-ext-s-lower, Line-ext-s-upper, StorageUnit-fix-p_dispatch-lower, StorageUnit-fix-p_dispatch-upper, StorageUnit-fix-p_store-lower, StorageUnit-fix-p_store-upper, StorageUnit-fix-state_of_charge-lower, StorageUnit-fix-state_of_charge-upper, Kirchhoff-Voltage-Law, StorageUnit-energy_balance were not assigned to the network.
+
+---
+
+_**Assistant**_
+
+<no message>
+
+---
+
+## Todo List
+
+- [-] Explain PyPSA shadow prices message to user
+- [ ] Clarify the different constraint types mentioned in the message
+- [ ] Provide solutions if the user needs shadow prices for analysis
+
+---
+
+This message is informational and not an error. It's telling you that shadow prices for certain constraints weren't assigned to your network after optimization.
+
+Shadow prices (also called dual variables or Lagrange multipliers) represent the marginal value of relaxing a constraint - essentially how much the objective function would improve if a constraint was relaxed by one unit.
+
+The message is saying that PyPSA didn't store these shadow prices for constraints like:
+- Generator power limits (fix-p-lower/upper)
+- Line capacity limits (fix-s-lower/upper, ext-s-lower/upper)
+- Storage unit dispatch/charge/state limits
+- Kirchhoff's Voltage Law constraints
+- Storage energy balance constraints
+
+This happens because:
+1. The solver might not have returned dual values
+2. PyPSA might not have requested them
+3. There might be an issue with how the optimization was set up
+
+If you need these shadow prices for economic analysis (like nodal prices or congestion costs), you can request them by adding `keep_shadowprices=True` to your optimize call:
+
+```python
+network.optimize(solver_name='gurobi', keep_shadowprices=True)
+```
+
+This is often only important for detailed economic analysis and doesn't affect the optimal solution itself.
+
+---
+
