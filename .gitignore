@@ -71,5 +71,9 @@ configs/scenarios/config.*.yaml
 backup*
 screenlog*
 
+# Large data files
+*.pkl
+RL/var_constraint_map/*.pkl
+
 # Exclude specific file paths
 !data/demand/unsd/paths/Energy_Statistics_Database.xlsx
