@@ -67,11 +67,16 @@ solving:
     options: gurobi-default
 
 #This is to make sure we don't end up with isolated buses which makes the optimization infeasible
+
+# FIXED: Modified augmented_line_connection for regular lines
 augmented_line_connection:
   add_to_snakefile: true
   connectivity_upgrade: 1
-  new_line_type: ["HVAC"]  # Just specify AC vs DC
-  min_expansion: 442.4
+  new_line_type: ["HVAC"]  #Just specify AC vs DC
+  # REMOVED: min_expansion parameter (this was causing expansion variables)
+  # ADDED: Fixed capacity specification
+  s_nom: 442.4              # Fixed capacity in MVA
+  extendable: false         # Explicitly set as non-extendable
   min_DC_length: 600
   # Don't specify line_type - let PyPSA choose
 
