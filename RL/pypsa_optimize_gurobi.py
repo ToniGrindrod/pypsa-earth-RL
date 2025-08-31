@@ -1,49 +1,70 @@
 import pypsa
+import os
+import pandas as pd
 
-def fix_artificial_lines_hardcoded(network):
+def fix_artificial_lines_reasonable(network):
     """
-    Fix artificial lines with hardcoded values to match existing non-extendable lines:
-    - s_nom = 442.4 (your desired capacity)
-    - s_nom_extendable = False
-    - s_nom_min = 0
-    - s_nom_max = inf
-    - extendable = False (if column exists)
+    Fix artificial lines with reasonable capacity values:
+    - s_nom = based on connected bus demand (with safety factor)
+    - s_nom_extendable = False (non-extendable)
+    - Keep capacity high enough to meet demand
     """
-    print("=== FIXING ARTIFICIAL LINES WITH HARDCODED VALUES ===")
-    fixed_capacity=442.4
+    print("=== FIXING ARTIFICIAL LINES WITH REASONABLE CAPACITY ===")
 
     # Find artificial lines
     artificial_lines = [line for line in network.lines.index
                        if any(keyword in str(line).lower() for keyword in ['new', '<->', 'artificial'])]
 
+    if not artificial_lines:
+        # If no artificial lines found by name, look for lines with s_nom=0
+        # which is often a sign of artificial lines
+        zero_capacity_lines = network.lines[network.lines.s_nom == 0].index.tolist()
+        if zero_capacity_lines:
+            artificial_lines = zero_capacity_lines
+
     print(f"Found {len(artificial_lines)} artificial lines to fix:")
 
-    # Fix each artificial line with hardcoded values
+    # Get maximum demand per bus across all snapshots
+    bus_max_demand = {}
+    for bus in network.buses.index:
+        bus_demand = 0
+        for load_name, load in network.loads.iterrows():
+            if load.bus == bus and load_name in network.loads_t.p_set.columns:
+                bus_demand = max(bus_demand, network.loads_t.p_set[load_name].max())
+        bus_max_demand[bus] = bus_demand
+
+    # Fix each artificial line with reasonable capacity
     for line_name in artificial_lines:
+        # Get connected buses
+        bus0 = network.lines.loc[line_name, 'bus0']
+        bus1 = network.lines.loc[line_name, 'bus1']
+
+        # Get maximum demand at these buses
+        bus0_demand = bus_max_demand.get(bus0, 0)
+        bus1_demand = bus_max_demand.get(bus1, 0)
+
+        # Calculate required capacity with safety factor
+        # Use 3x the higher demand to ensure adequate capacity
+        safety_factor = 3.0
+        required_capacity = max(bus0_demand, bus1_demand) * safety_factor
+
+        # Ensure minimum reasonable capacity (1000 MW)
+        required_capacity = max(required_capacity, 1000)
+
         print(f"\n🔧 Fixing: {line_name}")
+        print(f"    Connected buses: {bus0} ↔ {bus1}")
+        print(f"    Bus demands: {bus0}: {bus0_demand:.1f} MW, {bus1}: {bus1_demand:.1f} MW")
 
-        # s_nom = 442.4 (your fixed capacity)
+        # Set s_nom to required capacity
         old_s_nom = network.lines.loc[line_name, 's_nom']
-        network.lines.loc[line_name, 's_nom'] = fixed_capacity
-        print(f"    s_nom: {old_s_nom} → {fixed_capacity}")
+        network.lines.loc[line_name, 's_nom'] = required_capacity
+        print(f"    s_nom: {old_s_nom} → {required_capacity:.1f} MW")
 
-        # s_nom_extendable = False
+        # Make sure line is not extendable
         if 's_nom_extendable' not in network.lines.columns:
             network.lines['s_nom_extendable'] = False
         network.lines.loc[line_name, 's_nom_extendable'] = False
         print(f"    s_nom_extendable: → False")
-
-        # s_nom_min = 0
-        if 's_nom_min' not in network.lines.columns:
-            network.lines['s_nom_min'] = 0.0
-        network.lines.loc[line_name, 's_nom_min'] = 0.0
-        print(f"    s_nom_min: → 0.0")
-
-        # s_nom_max = inf
-        if 's_nom_max' not in network.lines.columns:
-            network.lines['s_nom_max'] = float('inf')
-        network.lines.loc[line_name, 's_nom_max'] = float('inf')
-        print(f"    s_nom_max: → inf")
 
     return network
 
@@ -55,18 +76,99 @@ def create_pypsa_network(network_file):
         # Use .loc for direct assignment to avoid SettingWithCopyWarning
         network.storage_units.loc[storage_name, 'cyclic_state_of_charge'] = False
 
-    fix_artificial_lines_hardcoded(network)
+        # Set marginal_cost to 0.01
+        network.storage_units.loc[storage_name, 'marginal_cost'] = 0.01
+
+        # Set marginal_cost_storage to 0.01
+        network.storage_units.loc[storage_name, 'marginal_cost_storage'] = 0.01
+
+        # Set spill_cost to 0.1
+        network.storage_units.loc[storage_name, 'spill_cost'] = 0.1
+
+    fix_artificial_lines_reasonable(network)
 
     return network
 
 # Load your network
-network_file_path= "/Users/antoniagrindrod/Documents/pypsa-earth_project/pypsa-earth-RL/networks/elec_s_5_ec_lc1.0_3h.nc"
+network_file_path= "/Users/antoniagrindrod/Documents/pypsa-earth_project/pypsa-earth-RL/networks/elec_s_10_ec_lc1.0_1h.nc"
 network = create_pypsa_network(network_file_path)
 
+test_start_date=pd.Timestamp('2013-12-01 00:00:00')
+total_snapshots = len(network.snapshots)
+
+train_snapshots = network.snapshots.get_loc(test_start_date)
+nearest_idx = network.snapshots.get_indexer([test_start_date], method='nearest')[0]
+train_snapshots = nearest_idx
+actual_test_start = network.snapshots[nearest_idx]
+test_snapshots = total_snapshots - train_snapshots
+
+test_snapshots=network.snapshots[train_snapshots:]
+
+# Set network to only include test snapshots
+network.snapshots = test_snapshots
+
+# Filter all time-series data to test snapshots only
+for component in network.iterate_components():
+    for attr in ['t', 'pnl']:
+        if hasattr(component, attr):
+            component_t = getattr(component, attr)
+            for key in component_t.keys():
+                if not component_t[key].empty:
+                    component_t[key] = component_t[key].loc[test_snapshots]
+
+# Set initial state of charge for storage units
+if len(network.storage_units) > 0:
+    for storage_name in network.storage_units.index:
+        initial_soc = network.storage_units.loc[storage_name, 'state_of_charge_initial']
+        # Set SOC at first test snapshot
+        first_test_snapshot = test_snapshots[0]
+        if hasattr(network.storage_units_t, 'state_of_charge'):
+            network.storage_units_t.state_of_charge.loc[first_test_snapshot, storage_name] = initial_soc
+
+#print(network.snapshots)
 # Optimize with Gurobi (using your valid license)
 network.optimize(solver_name='gurobi')
 
+# Calculate total objective value
+total_objective = 0.0
+for snapshot in test_snapshots:
+    snapshot_weighting = network.snapshot_weightings.objective.loc[snapshot]
+    
+    # Generator operational costs
+    if len(network.generators) > 0:
+        gen_marginal_costs = network.generators['marginal_cost']
+        gen_power = network.generators_t.p.loc[snapshot]
+        gen_cost = (gen_marginal_costs * gen_power).sum()
+        total_objective += gen_cost * snapshot_weighting
+    
+    # Storage unit operational costs
+    if len(network.storage_units) > 0:
+        # Dispatch costs
+        storage_marginal_costs = network.storage_units['marginal_cost']
+        storage_p_dispatch = network.storage_units_t.p_dispatch.loc[snapshot]
+        storage_cost = (storage_marginal_costs * storage_p_dispatch).sum()
+        total_objective += storage_cost * snapshot_weighting
+        
+        # Storage costs
+        storage_marginal_costs_storage = network.storage_units['marginal_cost_storage']
+        storage_store_power = network.storage_units_t.p_store.loc[snapshot]
+        storage_store_cost = (storage_marginal_costs_storage * storage_store_power).sum()
+        total_objective += storage_store_cost * snapshot_weighting
+        
+        # Spill costs
+        if hasattr(network.storage_units_t, 'spill'):
+            spill_costs = network.storage_units['spill_cost']
+            spill_amounts = network.storage_units_t.spill.loc[snapshot]
+            spill_cost = (spill_costs * spill_amounts).sum()
+            total_objective += spill_cost * snapshot_weighting
 
-# Save the optimized network
-network.export_to_netcdf("/Users/antoniagrindrod/Desktop/optimized_elec_s_5_ec_lc1.0_3h.nc")
-print("Optimization complete and saved!")
+optimization_file_path = '/Users/antoniagrindrod/Documents/pypsa-earth_project/pypsa-earth-RL/RL/optimized_network/elec_s_10_ec_lc1.0_1h_Test_Objective.txt'
+
+# Create directory if it doesn't exist
+os.makedirs(os.path.dirname(optimization_file_path), exist_ok=True)
+
+# Save the float value
+with open(optimization_file_path, 'w') as f:
+    f.write(str(total_objective))
+
+print(f"Optimization result saved: {total_objective}")
