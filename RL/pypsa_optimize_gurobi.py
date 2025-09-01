@@ -85,6 +85,8 @@ def create_pypsa_network(network_file):
         # Set spill_cost to 0.1
         network.storage_units.loc[storage_name, 'spill_cost'] = 0.1
 
+        network.storage_units.loc[storage_name, 'efficiency_store'] = 0.866025 #use phs efficiency (hydro didnt have an efficiency, but i want to model them all as the same)
+
         # Fix unrealistic max_hours values
         current_max_hours = network.storage_units.loc[storage_name, 'max_hours']
         
