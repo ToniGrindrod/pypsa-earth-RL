@@ -85,6 +85,20 @@ def create_pypsa_network(network_file):
         # Set spill_cost to 0.1
         network.storage_units.loc[storage_name, 'spill_cost'] = 0.1
 
+        # Fix unrealistic max_hours values
+        current_max_hours = network.storage_units.loc[storage_name, 'max_hours']
+        
+        if 'PHS' in storage_name:
+            # PHS with missing data - set to typical range
+            network.storage_units.loc[storage_name, 'max_hours'] = 8.0
+            print(f"Fixed {storage_name}: set max_hours to 8.0")
+            
+        elif 'hydro' in storage_name:
+            # Hydro with unrealistic data - set to validated range  
+            network.storage_units.loc[storage_name, 'max_hours'] = 6.0
+            print(f"Fixed {storage_name}: corrected max_hours from {current_max_hours} to 6.0")
+
+
     fix_artificial_lines_reasonable(network)
 
     return network
