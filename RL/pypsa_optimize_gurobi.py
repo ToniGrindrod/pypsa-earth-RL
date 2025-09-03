@@ -132,16 +132,19 @@ for component in network.iterate_components():
                 if not component_t[key].empty:
                     component_t[key] = component_t[key].loc[test_snapshots]
 
-# Set initial state of charge for storage units
-if len(network.storage_units) > 0:
-    for storage_name in network.storage_units.index:
-        initial_soc = network.storage_units.loc[storage_name, 'state_of_charge_initial']
-        # Set SOC at first test snapshot
-        first_test_snapshot = test_snapshots[0]
-        if hasattr(network.storage_units_t, 'state_of_charge'):
-            network.storage_units_t.state_of_charge.loc[first_test_snapshot, storage_name] = initial_soc
+# # Set initial state of charge for storage units
+# if len(network.storage_units) > 0:
+#     for storage_name in network.storage_units.index:
+#         initial_soc = network.storage_units.loc[storage_name, 'state_of_charge_initial']
+#         # Set SOC at first test snapshot
+#         first_test_snapshot = test_snapshots[0]
+#         if hasattr(network.storage_units_t, 'state_of_charge'):
+#             network.storage_units_t.state_of_charge.loc[first_test_snapshot, storage_name] = initial_soc
+# CORRECT: Only set the initial condition
+for storage_name in network.storage_units.index:
+    network.storage_units.loc[storage_name, 'state_of_charge_initial'] = 0.0
 
-#print(network.snapshots)
+print(network.snapshots)
 # Optimize with Gurobi (using your valid license)
 network.optimize(solver_name='gurobi')
 

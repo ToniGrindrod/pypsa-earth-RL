@@ -1,0 +1,10 @@
+{
+  "mode": "async",
+  "containerId": "9fc8d562-32d9-411f-9427-f216331f5c84",
+  "containerType": "run",
+  "structureVersion": 3,
+  "os": "macOS-15.6.1-x86_64-i386-64bit",
+  "pythonVersion": "3.11.13 | packaged by conda-forge | (main, Jun  4 2025, 14:48:01) [Clang 18.1.8 ]",
+  "neptuneClientVersion": "1.14.0",
+  "createdAt": "2025-09-02T21:40:22.609156+00:00"
+}
