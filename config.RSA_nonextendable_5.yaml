@@ -1,0 +1,83 @@
+# Write down config entries differing from config.default.yaml
+run: {}
+
+countries: ["ZA"]
+
+carriers:
+  AC: {}
+  coal: {}
+  CCGT: {}
+  nuclear: {}
+  solar: {}
+  onwind: {}
+  offwind-ac: {}
+  offwind-dc: {}
+  hydro: {}
+  ror: {}
+  biomass: {}
+
+scenario:
+  clusters: [5] #there are 808 nodes in the network but using all failed from too much memory
+  opts: [1h]
+  planning_horizons: [2030]
+  ll: ["c1.0"]  # Change from "copt" to use a fixed limit
+
+electricity:
+  extendable_carriers:
+    Generator: []        # Change from [solar, onwind, offwind-ac, offwind-dc, OCGT]
+    StorageUnit: []      # Keep empty
+    Store: []            # Change from [battery, H2]
+    Link: []             # Keep empty
+
+  estimate_renewable_capacities:
+    stats: "irena"       # This will use actual installed capacities
+    year: 2023
+    p_nom_min: 1.0       # Use 100% of current capacity
+    p_nom_max: 1.0       # Don't allow expansion beyond current
+
+renewable:
+  onwind:
+    extendable: false    # Change from true
+  offwind-ac:
+    extendable: false    # Change from true
+  offwind-dc:
+    extendable: false    # Change from true
+  solar:
+    extendable: false    # Change from true
+  hydro:
+    extendable: false    # Change from true
+  csp:
+    extendable: false    # Change from true
+
+# Add these sector disables for pure electricity-only:
+sector:
+  chp: false                           # Disable CHP (this fixes your error)
+  electricity_distribution_grid: false # Disable low voltage buses
+  solar_rooftop: false                 # Disable rooftop PV
+  home_battery: false                  # Disable home batteries
+  co2_network: false                   # Disable CO2 transport
+  
+# Disable sector-specific data retrieval:
+enable:
+  retrieve_databundle_sector: false    # Don't download sector data
+
+solving:
+  solver:
+    name: gurobi
+    options: gurobi-default
+
+#This is to make sure we don't end up with isolated buses which makes the optimization infeasible
+
+# FIXED: Modified augmented_line_connection for regular lines
+augmented_line_connection:
+  add_to_snakefile: true
+  connectivity_upgrade: 1
+  new_line_type: ["HVAC"]  #Just specify AC vs DC
+  # REMOVED: min_expansion parameter (this was causing expansion variables)
+  # ADDED: Fixed capacity specification
+  s_nom: 442.4              # Fixed capacity in MVA
+  extendable: false         # Explicitly set as non-extendable
+  min_DC_length: 600
+  # Don't specify line_type - let PyPSA choose
+
+# Note that in the config file, The order of top-level sections doesn't matter, but indentation and structure absolutely do!
