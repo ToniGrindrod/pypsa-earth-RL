@@ -51,7 +51,7 @@ def fix_artificial_lines_reasonable(network):
         # Ensure minimum reasonable capacity (1000 MW)
         required_capacity = max(required_capacity, 1000)
 
-        print(f"\n🔧 Fixing: {line_name}")
+        print(f"\n Fixing: {line_name}")
         print(f"    Connected buses: {bus0} ↔ {bus1}")
         print(f"    Bus demands: {bus0}: {bus0_demand:.1f} MW, {bus1}: {bus1_demand:.1f} MW")
 
@@ -67,6 +67,32 @@ def fix_artificial_lines_reasonable(network):
         print(f"    s_nom_extendable: → False")
 
     return network
+
+def remove_offshore_wind(network):
+    """
+    Remove offshore wind generators. 
+    All of these have zero nominal capacity (likely missing data). 
+    Need to remove them to avoid division by zero error in constraint check for slack gens.
+    Problem is still feasible without offwind slack since pypsa optimize still feasible.
+    """
+    
+    # First, identify offshore wind generators
+    offwind_gens = network.generators[
+        network.generators.index.str.contains('offwind', case=False, na=False)
+    ].index
+    
+    print(f"Found {len(offwind_gens)} offshore wind generators:")
+    print(offwind_gens.tolist())
+    
+    # Check their properties
+    offwind_data = network.generators.loc[offwind_gens, ['p_nom', 'control', 'carrier']]
+    print("\nOffshore wind generator details:")
+    print(offwind_data)
+    
+    # Remove offshore wind generators one by one
+    print(f"\nRemoving {len(offwind_gens)} offshore wind generators...")
+    for gen in offwind_gens:
+        network.remove("Generator", gen)
 
 def create_pypsa_network(network_file):
     """Create a PyPSA network from the .nc file."""
@@ -89,19 +115,20 @@ def create_pypsa_network(network_file):
 
         # Fix unrealistic max_hours values
         current_max_hours = network.storage_units.loc[storage_name, 'max_hours']
-        
+
         if 'PHS' in storage_name:
             # PHS with missing data - set to typical range
             network.storage_units.loc[storage_name, 'max_hours'] = 8.0
             print(f"Fixed {storage_name}: set max_hours to 8.0")
-            
+
         elif 'hydro' in storage_name:
-            # Hydro with unrealistic data - set to validated range  
+            # Hydro with unrealistic data - set to validated range
             network.storage_units.loc[storage_name, 'max_hours'] = 6.0
             print(f"Fixed {storage_name}: corrected max_hours from {current_max_hours} to 6.0")
 
 
     fix_artificial_lines_reasonable(network)
+    remove_offshore_wind(network)
 
     return network
 
@@ -109,42 +136,6 @@ def create_pypsa_network(network_file):
 network_file_path= "/Users/antoniagrindrod/Documents/pypsa-earth_project/pypsa-earth-RL/networks/elec_s_10_ec_lc1.0_1h.nc"
 network = create_pypsa_network(network_file_path)
 
-test_start_date=pd.Timestamp('2013-12-01 00:00:00')
-total_snapshots = len(network.snapshots)
-
-train_snapshots = network.snapshots.get_loc(test_start_date)
-nearest_idx = network.snapshots.get_indexer([test_start_date], method='nearest')[0]
-train_snapshots = nearest_idx
-actual_test_start = network.snapshots[nearest_idx]
-test_snapshots = total_snapshots - train_snapshots
-
-test_snapshots=network.snapshots[train_snapshots:]
-
-# Set network to only include test snapshots
-network.snapshots = test_snapshots
-
-# Filter all time-series data to test snapshots only
-for component in network.iterate_components():
-    for attr in ['t', 'pnl']:
-        if hasattr(component, attr):
-            component_t = getattr(component, attr)
-            for key in component_t.keys():
-                if not component_t[key].empty:
-                    component_t[key] = component_t[key].loc[test_snapshots]
-
-# # Set initial state of charge for storage units
-# if len(network.storage_units) > 0:
-#     for storage_name in network.storage_units.index:
-#         initial_soc = network.storage_units.loc[storage_name, 'state_of_charge_initial']
-#         # Set SOC at first test snapshot
-#         first_test_snapshot = test_snapshots[0]
-#         if hasattr(network.storage_units_t, 'state_of_charge'):
-#             network.storage_units_t.state_of_charge.loc[first_test_snapshot, storage_name] = initial_soc
-# CORRECT: Only set the initial condition
-for storage_name in network.storage_units.index:
-    network.storage_units.loc[storage_name, 'state_of_charge_initial'] = 0.0
-
-print(network.snapshots)
 # Optimize with Gurobi (using your valid license)
 network.optimize(solver_name='gurobi')
 
