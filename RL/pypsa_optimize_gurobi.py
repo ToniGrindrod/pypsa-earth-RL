@@ -141,7 +141,7 @@ network.optimize(solver_name='gurobi')
 
 # Calculate total objective value
 total_objective = 0.0
-for snapshot in test_snapshots:
+for snapshot in network.snapshots.indices:
     snapshot_weighting = network.snapshot_weightings.objective.loc[snapshot]
     
     # Generator operational costs
