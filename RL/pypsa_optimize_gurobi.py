@@ -136,6 +136,20 @@ def create_pypsa_network(network_file):
 network_file_path= "/Users/antoniagrindrod/Documents/pypsa-earth_project/pypsa-earth-RL/networks/elec_s_10_ec_lc1.0_1h.nc"
 network = create_pypsa_network(network_file_path)
 
+def _initialize_power_flow_matrices(network):
+    """Pre-compute network topology and power flow matrices for fast LPF."""
+    print("Pre-computing network topology and power flow matrices...")
+    
+    # Step 1: Determine network topology (identifies sub-networks)
+    network.determine_network_topology()
+    
+    # Step 2: Pre-compute power flow matrices for each sub-network
+    for sub in network.sub_networks.obj:
+        sub.calculate_B_H()
+    
+    print(f"Initialized {len(network.sub_networks.obj)} sub-networks for fast power flow")
+
+_initialize_power_flow_matrices(network)
 # Optimize with Gurobi (using your valid license)
 network.optimize(solver_name='gurobi')
 
