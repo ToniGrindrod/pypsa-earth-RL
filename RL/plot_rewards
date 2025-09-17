@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+import pandas as pd
+import matplotlib.pyplot as plt
+import os
+
+# Define file paths
+base_dir = "/Users/antoniagrindrod/Documents/pypsa-earth_project/pypsa-earth-RL/RL/value loss"
+el13_file = os.path.join(base_dir, "EL-13__policy_loss.csv")
+el14_file = os.path.join(base_dir, "EL-14__policy_loss.csv")
+
+# Read CSV files
+# CSV format: episode, timestamp, policy_loss
+el13_data = pd.read_csv(el13_file, header=None, names=["episode", "timestamp", "policy_loss"])
+el14_data = pd.read_csv(el14_file, header=None, names=["episode", "timestamp", "policy_loss"])
+
+# Create the plot
+plt.figure(figsize=(10, 6))
+
+# Plot both policy loss curves
+plt.plot(el13_data["episode"], el13_data["policy_loss"], label="EnvDispatchReplacement", marker='o', markersize=4)
+plt.plot(el14_data["episode"], el14_data["policy_loss"], label="EnvDispatchConstr", marker='x', markersize=4)
+
+# Add labels and title
+plt.xlabel("Episode")
+plt.ylabel("Policy Loss")
+plt.title("Policy Loss Comparison")
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.legend()
+
+# Improve layout
+plt.tight_layout()
+
+# Save the figure
+output_path = os.path.join(os.path.dirname(base_dir), "policy_loss_comparison.png")
+plt.savefig(output_path, dpi=300)
+print(f"Plot saved to {output_path}")
+
+# Show the plot
+plt.show()
